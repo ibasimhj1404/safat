@@ -9,7 +9,7 @@ const transporter = nodemailer.createTransport({
   auth: { user: config.smtp.user, pass: config.smtp.pass },
 });
 
-// هذه البادئة تعتمد عليها المهمة المجدولة في البحث عن الحالات الجديدة — لا تغيّرها
+// بادئة ثابتة لعنوان رسائل الحالات، تسهّل البحث عنها وتصنيفها في البريد
 export const SUBJECT_PREFIX = "[استقبال واتساب]";
 
 const REASONS = {
@@ -23,7 +23,7 @@ const esc = (s) =>
   String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 const list = (arr) => (arr?.length ? arr : ["لا يوجد"]);
 
-export async function sendSummary(conv, summary, reason) {
+export async function sendSummary(conv, summary, reason, memo) {
   const fmtDate = (iso) =>
     new Date(iso).toLocaleString("ar-SA-u-ca-islamic-umalqura", { timeZone: "Asia/Riyadh" }) +
     " — " +
@@ -56,6 +56,9 @@ export async function sendSummary(conv, summary, reason) {
 <h3>المستندات</h3><ul>${list(summary.documents).map((d) => `<li>${esc(d)}</li>`).join("")}</ul>
 <h3>معلومات ناقصة</h3><ul>${list(summary.missing_info).map((d) => `<li>${esc(d)}</li>`).join("")}</ul>
 <h3>ملاحظات أولية للمحامي</h3><p>${esc(summary.initial_notes).replace(/\n/g, "<br>")}</p>
+<hr><h2 style="margin:16px 0 4px">مذكرة دراسة أولية</h2>
+<p style="background:#fff4e5;border:1px solid #f0c36d;padding:6px">أعدّها Claude آليًا وتحتاج مراجعة المحامي. كل مادة أو رقم نظام بجانبه «يحتاج تحققًا» لم يُتحقق من نصه.</p>
+<div style="white-space:pre-wrap">${esc(memo || "تعذّر إعداد المذكرة آليًا لهذه الحالة.")}</div>
 <hr><h3>نص المحادثة كاملًا</h3><pre style="white-space:pre-wrap;font-family:inherit">${esc(transcript)}</pre>
 </div>`;
 
@@ -69,7 +72,7 @@ export async function sendSummary(conv, summary, reason) {
     to: config.lawyerEmail,
     subject: `${SUBJECT_PREFIX}${urgentTag} ${summary.case_type} — ${summary.client_name} (+${conv.phone})`,
     html,
-    text: `${rows.map(([k, v]) => `${k}: ${v}`).join("\n")}\n\nالوقائع:\n${summary.facts}\n\nطلب العميل:\n${summary.client_request}\n\n---\n${transcript}`,
+    text: `${rows.map(([k, v]) => `${k}: ${v}`).join("\n")}\n\nالوقائع:\n${summary.facts}\n\nطلب العميل:\n${summary.client_request}\n\n=== مذكرة دراسة أولية (آلية، تحتاج مراجعة) ===\n${memo || "تعذّر إعداد المذكرة."}\n\n---\n${transcript}`,
     attachments,
   });
 }

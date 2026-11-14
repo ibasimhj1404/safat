@@ -4,6 +4,7 @@ import { config } from "./config.js";
 import {
   INTAKE_SYSTEM,
   LAST_REPLY_NOTE,
+  MEMO_SYSTEM,
   SUMMARY_SYSTEM,
   SUMMARY_SCHEMA,
   TURN_SCHEMA,
@@ -99,12 +100,47 @@ export async function intakeTurn(conv) {
   return out;
 }
 
-/** ملخص منظم للمحامي بعد انتهاء الاستقبال */
-export async function summarize(conv) {
-  const transcript = conv.turns
+function transcriptOf(conv) {
+  return conv.turns
     .map((t) => `${t.role === "assistant" ? "الاستقبال" : "العميل"}: ${t.text || ""}${t.media?.length ? ` [${t.media.length} مرفق]` : ""}`)
     .join("\n");
+}
 
+/** مذكرة دراسة أولية للمحامي (نص عادي) */
+export async function studyMemo(conv, summary) {
+  const today = new Date().toLocaleDateString("ar-SA-u-ca-islamic-umalqura", { timeZone: "Asia/Riyadh" }) +
+    " هـ — " + new Date().toLocaleDateString("en-GB", { timeZone: "Asia/Riyadh" }) + " م";
+  const mediaBlocks = conv.turns.flatMap((t) => (t.media || []).map(mediaBlock));
+
+  const stream = client.beta.messages.stream({
+    model: config.model,
+    max_tokens: 32000,
+    betas: ["server-side-fallback-2026-07-01"],
+    fallbacks: "default",
+    system: [{ type: "text", text: MEMO_SYSTEM, cache_control: { type: "ephemeral" } }],
+    output_config: { effort: "high" },
+    messages: [
+      {
+        role: "user",
+        content: [
+          ...mediaBlocks,
+          {
+            type: "text",
+            text: `تاريخ اليوم: ${today}\n\nملخص الحالة:\n${JSON.stringify(summary, null, 2)}\n\nنص محادثة الاستقبال:\n${transcriptOf(conv)}\n\nاكتب مذكرة الدراسة الأولية.`,
+          },
+        ],
+      },
+    ],
+  });
+  const response = await stream.finalMessage();
+  if (response.stop_reason === "refusal") return null;
+  const text = response.content.filter((b) => b.type === "text").map((b) => b.text).join("\n").trim();
+  return text || null;
+}
+
+/** ملخص منظم للمحامي بعد انتهاء الاستقبال */
+export async function summarize(conv) {
+  const transcript = transcriptOf(conv);
   const mediaBlocks = conv.turns.flatMap((t) => (t.media || []).map(mediaBlock));
   const response = await callClaude({
     system: SUMMARY_SYSTEM,

@@ -15,7 +15,7 @@ import makeWASocket, {
 } from "@whiskeysockets/baileys";
 import { assertConfig, config } from "./config.js";
 import * as store from "./store.js";
-import { intakeTurn, summarize } from "./claude.js";
+import { intakeTurn, studyMemo, summarize } from "./claude.js";
 import { sendSummary } from "./mailer.js";
 
 assertConfig();
@@ -121,7 +121,14 @@ async function processChat(jid) {
       store.save(conv);
       const summary = await summarize(conv);
       conv.summary = summary;
-      await sendSummary(conv, summary, out.handoff_reason);
+      let memo = null;
+      try {
+        memo = await studyMemo(conv, summary);
+      } catch (e) {
+        log("⚠️ تعذّر إعداد المذكرة، سيُرسل الملخص وحده:", e?.message || e);
+      }
+      conv.memo = memo;
+      await sendSummary(conv, summary, out.handoff_reason, memo);
       conv.emailedAt = new Date().toISOString();
       log(`📧 أُرسل ملخص +${conv.phone} إلى البريد`);
     }
