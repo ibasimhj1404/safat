@@ -1,0 +1,20 @@
+{
+  "name": "safat-whatsapp-intake",
+  "version": "1.0.0",
+  "description": "استقبال آلي لعملاء مكتب المحاماة عبر واتساب بالذكاء الاصطناعي (Claude) مع إرسال ملخص الحالة إلى البريد",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "check": "node --check src/index.js && node --check src/claude.js && node --check src/store.js && node --check src/mailer.js && node --check src/config.js && node --check src/prompt.js"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "@anthropic-ai/sdk": "1.3.0",
+    "@whiskeysockets/baileys": "6.7.24",
+    "dotenv": "17.2.3",
+    "nodemailer": "7.0.10",
+    "pino": "9.14.0",
+    "qrcode-terminal": "0.12.0"
+  }
+}
